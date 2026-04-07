@@ -22,8 +22,8 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
-START    = datetime(2022, 4, 27)
-END      = datetime(2023, 4, 27)
+START    = datetime(2020, 10, 27)
+END      = datetime(2024, 10, 27)
 OUT_FILE = "out/reddit_trending.tsv"
 API_URL  = "https://arctic-shift.photon-reddit.com/api/posts/search"
 
