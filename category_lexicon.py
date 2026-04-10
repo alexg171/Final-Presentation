@@ -559,21 +559,46 @@ TRUE_CRIME = [
     "my favorite murder",
 ]
 
+POLITICS = [
+    # Institutions / process
+    "supreme court", "scotus",
+    "sotu", "state of the union",
+    "senate", "congress", "house of representatives",
+    "filibuster", "debt ceiling",
+    "jan6", "january 6",
+    "impeachment",
+    "midterms", "midterm", "primary election",
+    "electoral college", "voter", "voting rights",
+    "gerrymandering", "ballot",
+    # Parties / ideology
+    "republican", "democrat", "gop", "dnc", "rnc",
+    "maga", "resist",
+    "socialism", "communist", "fascist", "fascism",
+    "conservative", "liberal", "progressive",
+    # Policy issues
+    "abortion", "roe v wade", "roevwade", "prolife", "prochoice",
+    "gun control", "gun violence", "2ndamendment", "second amendment",
+    "obamacare", "aca", "medicare", "medicaid",
+    "immigration", "border wall", "daca",
+    "student loan", "studentloan",
+    "tax cuts", "taxbill",
+    # Political figures (not already in news_events)
+    "trump", "biden", "harris", "desantis", "newsom",
+    "pence", "manchin",
+    "pelosi", "mcconnell", "schumer", "aoc",
+    "mtg", "marjorie taylor greene",
+    "ron paul", "rand paul",
+    "bernie", "bernie sanders",
+    "buttigieg", "pete buttigieg",
+    "morningjoe",
+]
+
 NEWS_EVENTS = [
     # Geopolitical
     "ukraine", "russia", "zelensky", "nato", "mariupol",
     "israel", "hamas", "gaza", "palestine", "iran",
     "north korea", "taiwan", "china",
     "putin",
-    # US domestic events
-    "supreme court", "scotus",
-    "sotu", "state of the union",
-    "debt ceiling",
-    "jan6", "january 6",
-    "impeachment",
-    # Political figures (news context)
-    "manchin", "pence",
-    "morningjoe",
     # Disasters
     "earthquake", "hurricane", "tornado", "flood", "wildfire",
     "tsunami",
@@ -658,6 +683,7 @@ CATEGORY_ORDER = [
     ("sports_college",  SPORTS_COLLEGE),
     ("sports_other",    SPORTS_OTHER),
     ("holidays",        HOLIDAYS),
+    ("politics",        POLITICS),
     ("news_events",     NEWS_EVENTS),
     ("social_filler",   SOCIAL_FILLER),
 ]
@@ -685,6 +711,7 @@ DISPLAY_GROUPS = {
     "musk_twitter":   "Musk / Twitter / X",
     "holidays":       "Holidays & Seasonal",
     "true_crime":     "True Crime",
+    "politics":       "Politics (Partisan)",
     "news_events":    "News & Events",
     "social_filler":  "Social Filler",
     "other":          "Other / Uncategorised",
@@ -713,6 +740,7 @@ CAT_COLORS = {
     "musk_twitter":   "#000000",
     "holidays":       "#98df8a",
     "true_crime":     "#7f7f7f",
+    "politics":       "#e41a1c",
     "news_events":    "#525252",
     "social_filler":  "#d9d9d9",
     "other":          "#f0f0f0",

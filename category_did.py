@@ -5,8 +5,10 @@ Design
 ------
 For each Twitter content category:
   - Treated unit : Twitter — daily share of trending topics in that category
-  - Control unit : Reddit  — daily post volume in the counterpart subreddit(s),
-                             normalized to the same pre-treatment baseline
+  - Control unit : Reddit  — daily post volume in the MATCHED category subreddit(s)
+                             from reddit_category.tsv, normalized to pre-treatment baseline
+                             Falls back to generic political subreddit baseline for
+                             categories with no matched subreddit.
 
 Both series are expressed as % deviation from their own pre-treatment mean:
   deviation_it = (y_it - mean_i_pre) / mean_i_pre * 100
@@ -19,9 +21,6 @@ DiD model (HC3 robust SEs):
 
 Positive β3  → Twitter algorithmically amplified this category beyond organic interest
 Negative β3  → Twitter suppressed this category below what organic interest would predict
-
-Uses existing reddit_trending.tsv (6 political subreddits) as general baseline control.
-Will be re-run with category-specific subreddits once reddit_category.tsv is ready.
 
 Output
 ------
@@ -56,7 +55,7 @@ TEST_CATS = [
     "sports_mlb", "sports_nhl", "sports_soccer", "sports_college",
     "sports_womens", "sports_other", "reality_tv", "entertainment",
     "taylor_swift", "fandom", "tech_gaming", "lgbtq_social",
-    "religious", "musk_twitter", "news_events",
+    "religious", "musk_twitter", "politics", "news_events",
 ]
 
 
@@ -85,17 +84,71 @@ def build_twitter_panel() -> pd.DataFrame:
     return share
 
 
-# ── 2. REDDIT: daily post volume (existing political subs) ────────────────────
+# Matched subreddit(s) per Twitter category
+CAT_TO_SUBREDDIT = {
+    "wrestling":      ["SquaredCircle"],
+    "combat_sports":  ["MMA"],
+    "sports_nba":     ["nba"],
+    "sports_nfl":     ["nfl"],
+    "sports_mlb":     ["baseball"],
+    "sports_nhl":     ["hockey"],
+    "sports_soccer":  ["soccer"],
+    "sports_college": ["CFB"],
+    "reality_tv":     ["BravoRealHousewives", "LoveIslandTV", "thebachelor",
+                       "survivor", "BigBrother", "Vanderpumprules",
+                       "MAFS_TV", "90DayFiance"],
+    "entertainment":  ["television"],
+    "taylor_swift":   ["TaylorSwift"],
+    "fandom":         ["anime", "kpop"],
+    "tech_gaming":    ["gaming"],
+    "lgbtq_social":   ["lgbt"],
+    "news_events":    ["worldnews"],
+    "musk_twitter":   ["worldnews"],
+    "sports_womens":  ["wnba", "NWSL"],
+    # No matched sub — will fall back to generic political baseline:
+    # sports_other, manosphere, religious, true_crime, politics
+}
 
-def build_reddit_baseline() -> pd.Series:
-    print("Building Reddit baseline from political subreddits …")
+
+# ── 2. REDDIT: per-category and generic baselines ────────────────────────────
+
+def build_reddit_controls() -> dict:
+    """
+    Returns a dict: category -> daily n_posts pd.Series (full 4yr date range).
+    Uses matched subreddits where available; falls back to generic political baseline.
+    """
+    date_idx = pd.date_range(PRE_START, POST_END, freq="D")
+
+    # Load matched category subreddits
+    cat_path = "out/reddit_category.tsv"
+    cat_controls = {}
+    if os.path.exists(cat_path):
+        rc = pd.read_csv(cat_path, sep="\t", parse_dates=["date"])
+        rc = rc[(rc["date"] >= PRE_START) & (rc["date"] <= POST_END)]
+        for cat, subs in CAT_TO_SUBREDDIT.items():
+            sub_data = rc[rc["subreddit"].isin(subs)]
+            if sub_data.empty:
+                continue
+            daily = (sub_data.groupby(sub_data["date"].dt.date)["n_posts"]
+                     .sum().rename_axis("date"))
+            daily.index = pd.to_datetime(daily.index)
+            daily = daily.reindex(date_idx, fill_value=0).astype(float)
+            cat_controls[cat] = daily
+
+    # Generic political baseline (fallback)
+    print("Building Reddit controls …")
     rd = pd.read_csv("out/reddit_trending.tsv", sep="\t", parse_dates=["date"])
     rd = rd[(rd["date"] >= PRE_START) & (rd["date"] <= POST_END)]
+    generic = rd.groupby(rd["date"].dt.date).size().rename_axis("date")
+    generic.index = pd.to_datetime(generic.index)
+    generic = generic.reindex(date_idx, fill_value=0).astype(float)
 
-    daily = rd.groupby(rd["date"].dt.date).size().rename_axis("date")
-    daily.index = pd.to_datetime(daily.index)
-    daily = daily.reindex(pd.date_range(PRE_START, POST_END, freq="D"), fill_value=0)
-    return daily.astype(float)
+    matched = len(cat_controls)
+    total   = len(TEST_CATS)
+    print(f"  Matched subreddits: {matched}/{total} categories")
+    print(f"  Fallback (generic political): {total - matched} categories")
+
+    return cat_controls, generic
 
 
 # ── 3. NORMALIZE to % deviation from pre-treatment mean ──────────────────────
@@ -110,18 +163,27 @@ def normalize(series: pd.Series, pre_mask: np.ndarray) -> pd.Series:
 # ── 4. RUN DiD PER CATEGORY ──────────────────────────────────────────────────
 
 def run_category_did(tw_share: pd.DataFrame,
-                     rd_baseline: pd.Series) -> pd.DataFrame:
+                     cat_controls: dict,
+                     generic_baseline: pd.Series) -> pd.DataFrame:
 
     all_dates = tw_share.index
     pre_mask  = np.array(all_dates < TREATMENT)
     post_mask = np.array(all_dates >= TREATMENT)
 
-    rd_norm = normalize(rd_baseline, pre_mask)
+    generic_norm = normalize(generic_baseline, pre_mask)
 
     results = []
     for cat in TEST_CATS:
         tw_series = tw_share[cat]
         tw_norm   = normalize(tw_series, pre_mask)
+
+        # Use matched subreddit if available, else generic political baseline
+        if cat in cat_controls:
+            rd_norm   = normalize(cat_controls[cat], pre_mask)
+            ctrl_label = CAT_TO_SUBREDDIT[cat]
+        else:
+            rd_norm   = generic_norm
+            ctrl_label = ["generic_political"]
 
         # Stack into panel: one row per (date, unit)
         tw_df = pd.DataFrame({
@@ -161,6 +223,7 @@ def run_category_did(tw_share: pd.DataFrame,
             results.append({
                 "category":    cat,
                 "label":       DISPLAY_GROUPS.get(cat, cat),
+                "control":     "+".join(ctrl_label),
                 "tw_pre_dev":  tw_pre,
                 "tw_post_dev": tw_post,
                 "rd_pre_dev":  rd_pre,
@@ -203,7 +266,7 @@ def print_results(res: pd.DataFrame):
               f"{r['did_coef']:>+9.2f} {r['pval']:>7.3f}{r['stars']:>5}   {ci}")
     print("="*90)
     print("Note: deviations expressed as % from own pre-treatment mean.")
-    print("      Reddit control = total daily posts across 6 political subreddits.")
+    print("      Reddit control = matched category subreddit (or generic political fallback).")
 
 
 # ── 6. PLOT ──────────────────────────────────────────────────────────────────
@@ -241,7 +304,7 @@ def plot_results(res: pd.DataFrame):
     ax.set_title(
         "Category DiD: Did Twitter Amplify or Suppress Each Content Type?\n"
         "Positive = amplified beyond organic interest  |  Negative = suppressed\n"
-        "(Reddit political subreddit volume as baseline control)",
+        "(Matched Reddit subreddit as per-category control)",
         fontsize=11, fontweight="bold")
 
     fig.tight_layout()
@@ -320,15 +383,16 @@ def plot_category_timeseries(tw_share: pd.DataFrame,
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    tw_share    = build_twitter_panel()
-    rd_baseline = build_reddit_baseline()
+    tw_share                    = build_twitter_panel()
+    cat_controls, generic_baseline = build_reddit_controls()
 
-    res = run_category_did(tw_share, rd_baseline)
+    res = run_category_did(tw_share, cat_controls, generic_baseline)
     print_results(res)
 
     res.to_csv("out/category_did_results.csv", index=False)
     print("\nSaved: out/category_did_results.csv")
 
     plot_results(res)
-    plot_category_timeseries(tw_share, rd_baseline, res)
+    # Pass generic baseline for the timeseries overlay (consistent visual reference)
+    plot_category_timeseries(tw_share, generic_baseline, res)
     print("\nDone.")

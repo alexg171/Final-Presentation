@@ -49,7 +49,7 @@ FEMALE_CODED = {"reality_tv", "taylor_swift", "fandom",
                 "sports_womens", "lgbtq_social"}
 NEUTRAL_CODED = {"entertainment", "religious", "musk_twitter",
                  "holidays", "true_crime", "news_events",
-                 "social_filler", "other"}
+                 "politics", "social_filler", "other"}
 
 
 # ── 1. LOAD & CLASSIFY ────────────────────────────────────────────────────────
@@ -96,44 +96,6 @@ def print_summary(summ: pd.DataFrame):
         print(f"{r['label']:<36} {r['pct_pre']:>7.2f} {r['pct_post']:>7.2f} "
               f"{r['shift_pp']:>+8.2f}pp   {int(r['n_pre']):>7,} {int(r['n_post']):>7,}{flag}")
     print("="*82)
-
-
-# ── 3. PLOT: STACKED BARS ────────────────────────────────────────────────────
-
-def plot_stacked_bars(summ: pd.DataFrame):
-    # Exclude social_filler and other to keep chart readable
-    show = summ[~summ["category"].isin(["social_filler", "other"])].copy()
-
-    fig, ax = plt.subplots(figsize=(11, 7))
-    x = np.array([0, 1])
-    bottom = np.zeros(2)
-
-    for _, row in show.iterrows():
-        vals   = np.array([row["pct_pre"], row["pct_post"]])
-        color  = CAT_COLORS.get(row["category"], "#aaaaaa")
-        ax.bar(x, vals, bottom=bottom, color=color,
-               label=row["label"], edgecolor="white", linewidth=0.4)
-        bottom += vals
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(
-        ["Pre-acquisition\n(Oct 2020 – Oct 2022)",
-         "Post-acquisition\n(Oct 2022 – Oct 2024)"],
-        fontsize=11)
-    ax.set_ylabel("Share of trending topics (%)", fontsize=10)
-    ax.yaxis.set_major_formatter(mticker.PercentFormatter())
-    ax.set_title(
-        "Twitter Trending Topic Composition\nPre vs. Post Musk Acquisition"
-        "\n(social filler & uncategorised excluded)",
-        fontsize=12, fontweight="bold")
-    ax.legend(loc="upper left", fontsize=7, framealpha=0.9,
-              bbox_to_anchor=(1.01, 1.0), ncol=1)
-    fig.tight_layout()
-    out = f"{FIGURES}/category_composition.png"
-    fig.savefig(out, bbox_inches="tight")
-    plt.close()
-    print(f"Saved: {out}")
-
 
 # ── 4. PLOT: SHIFT BARS ──────────────────────────────────────────────────────
 
@@ -212,82 +174,6 @@ def plot_timeseries(df: pd.DataFrame):
     plt.close()
     print(f"Saved: {out}")
 
-
-# ── 6. PLOT: BRO SHIFT ───────────────────────────────────────────────────────
-
-def plot_bro_shift(df: pd.DataFrame):
-    """
-    Aggregate into Male-coded / Female-coded / Neutral buckets monthly.
-    Shows gender lean of trending content over time.
-    """
-    df2 = df.copy()
-    df2["month"] = df2["Date"].dt.to_period("M").dt.to_timestamp()
-
-    def gender_bucket(cat):
-        if cat in MALE_CODED:   return "male_coded"
-        if cat in FEMALE_CODED: return "female_coded"
-        return "neutral"
-
-    df2["gender"] = df2["category"].apply(gender_bucket)
-
-    monthly = (df2.groupby(["month", "gender"])
-                  .size().unstack(fill_value=0))
-    for g in ["male_coded", "female_coded", "neutral"]:
-        if g not in monthly:
-            monthly[g] = 0
-    monthly_pct = monthly.div(monthly.sum(axis=1), axis=0) * 100
-
-    fig, axes = plt.subplots(2, 1, figsize=(13, 8))
-
-    # Top: stacked area
-    ax = axes[0]
-    ax.stackplot(monthly_pct.index,
-                 monthly_pct["male_coded"],
-                 monthly_pct["female_coded"],
-                 monthly_pct["neutral"],
-                 labels=["Male-coded\n(sports, wrestling, UFC, tech, manosphere)",
-                         "Female-coded\n(reality TV, Taylor Swift, K-pop, women's sports)",
-                         "Neutral\n(news, entertainment, holidays, filler)"],
-                 colors=["#4e79a7", "#e15759", "#bab0ac"],
-                 alpha=0.8)
-    ax.axvline(TREATMENT, color="black", linewidth=1.2,
-               linestyle="--", label="Oct 27, 2022")
-    ax.set_ylabel("Share of topics (%)", fontsize=9)
-    ax.set_title("Gender Lean of Twitter Trending Topics Over Time",
-                 fontsize=12, fontweight="bold")
-    ax.yaxis.set_major_formatter(mticker.PercentFormatter())
-    ax.legend(loc="upper left", fontsize=7.5, framealpha=0.9,
-              bbox_to_anchor=(1.01, 1.0))
-
-    # Bottom: male - female gap (rolling 3-month)
-    ax2 = axes[1]
-    gap = monthly_pct["male_coded"] - monthly_pct["female_coded"]
-    gap_roll = gap.rolling(3, center=True, min_periods=1).mean()
-    ax2.axhline(0, color="grey", linewidth=0.8, linestyle=":")
-    ax2.fill_between(gap_roll.index, gap_roll,
-                     where=(gap_roll >= 0),
-                     color="#4e79a7", alpha=0.5, label="Male > Female")
-    ax2.fill_between(gap_roll.index, gap_roll,
-                     where=(gap_roll < 0),
-                     color="#e15759", alpha=0.5, label="Female > Male")
-    ax2.plot(gap_roll.index, gap_roll, color="black", linewidth=1.2)
-    ax2.axvline(TREATMENT, color="black", linewidth=1.2,
-                linestyle="--", alpha=0.7)
-    ax2.set_ylabel("Male% − Female% (3-mo avg)", fontsize=9)
-    ax2.set_title("Male-coded minus Female-coded Share (Gap)",
-                  fontsize=10, fontweight="bold")
-    ax2.legend(fontsize=8)
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b '%y"))
-    ax2.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
-    plt.setp(ax2.xaxis.get_majorticklabels(), rotation=30, ha="right")
-
-    fig.tight_layout()
-    out = f"{FIGURES}/bro_shift.png"
-    fig.savefig(out, bbox_inches="tight")
-    plt.close()
-    print(f"Saved: {out}")
-
-
 # ── 7. MAIN ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -299,8 +185,6 @@ if __name__ == "__main__":
     print("\nSaved: out/category_counts.csv")
 
     print("\nGenerating plots …")
-    plot_stacked_bars(summ)
     plot_shift(summ)
     plot_timeseries(df)
-    plot_bro_shift(df)
     print("\nDone.")
