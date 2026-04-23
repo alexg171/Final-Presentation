@@ -332,7 +332,7 @@ def plot_category_timeseries(tw_share: pd.DataFrame,
     all_dates = tw_share.index
     pre_mask  = np.array(all_dates < TREATMENT)
 
-    rd_norm = normalize(rd_baseline, pre_mask)
+    rd_norm = log_normalize(rd_baseline, pre_mask)
     rd_roll = rd_norm.rolling(30, center=True, min_periods=5).mean()
 
     top_cats = res.reindex(
@@ -343,7 +343,7 @@ def plot_category_timeseries(tw_share: pd.DataFrame,
     axes = axes.flatten()
 
     for ax, cat in zip(axes, top_cats):
-        tw_norm = normalize(tw_share[cat], pre_mask)
+        tw_norm = log_normalize(tw_share[cat], pre_mask)
         tw_roll = tw_norm.rolling(30, center=True, min_periods=5).mean()
 
         color = CAT_COLORS.get(cat, "#4e79a7")
