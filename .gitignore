@@ -1,6 +1,7 @@
 __pycache__
 *.docx
 *.pdf
+*.tex
 out/
 .vscode/
 .claude/
