@@ -6,69 +6,71 @@ UNIQUE_PATH = "out/unique_topics.csv"
 # ── Shorthand → official category name ───────────────────────────────────────
 LABEL_ALIASES = {
     # sports
-    "soccer":          "sports_soccer",
-    "nfl":             "sports_nfl",
-    "nba":             "sports_nba",
-    "mlb":             "sports_mlb",
-    "nhl":             "sports_nhl",
-    "college sports":  "sports_college",
-    "college":         "sports_college",
-    "f1":              "sports_other",
-    "golf":            "sports_other",
-    "tennis":          "sports_other",
-    "sports other":    "sports_other",
-    "womens sports":   "sports_womens",
-    "wnba":            "sports_womens",
-    "boxing sports":   "combat_sports",
-    "boxing":          "combat_sports",
-    "mma":             "combat_sports",
-    "ufc":             "combat_sports",
+    "soccer": "sports_soccer",
+    "nfl": "sports_nfl",
+    "nba": "sports_nba",
+    "mlb": "sports_mlb",
+    "nhl": "sports_nhl",
+    "college sports": "sports_college",
+    "college": "sports_college",
+    "f1": "sports_other",
+    "golf": "sports_other",
+    "tennis": "sports_other",
+    "sports other": "sports_other",
+    "womens sports": "sports_womens",
+    "wnba": "sports_womens",
+    "boxing sports": "combat_sports",
+    "boxing": "combat_sports",
+    "mma": "combat_sports",
+    "ufc": "combat_sports",
+    
     # entertainment
-    "music":           "entertainment",
-    "tv":              "entertainment",
-    "movies":          "entertainment",
-    "film":            "entertainment",
-    "movie":           "entertainment",
+    "music": "entertainment",
+    "tv": "entertainment",
+    "movies": "entertainment",
+    "film": "entertainment",
+    "movie": "entertainment",
+    
     # other shorthands
-    "kpop":            "fandom",
-    "anime":           "fandom",
-    "reality":         "reality_tv",
-    "reality tv":      "reality_tv",
-    "news":            "news_events",
-    "news events":     "news_events",
-    "taylor swift":    "taylor_swift",
-    "taylor":          "taylor_swift",
-    "politics":        "politics",
-    "political":       "politics",
-    "lgbtq":           "lgbtq_social",
-    "social justice":  "lgbtq_social",
-    "religion":        "religious",
-    "gaming":          "tech_gaming",
-    "tech":            "tech_gaming",
-    "crypto":          "tech_gaming",
-    "manosphere":      "manosphere",
-    "true crime":      "true_crime",
-    "musk":            "musk_twitter",
-    "twitter":         "musk_twitter",
-    "holidays":        "holidays",
-    "holiday":         "holidays",
-    "wrestling":       "wrestling",
-    "wwe":             "wrestling",
-    "social":          "social_filler",
-    "filler":          "social_filler",
-    "social filler":   "social_filler",
-    "ads":             "social_filler",
-    "sponsored":       "social_filler",
-    "nascar":          "sports_other",
-    "sports":          "sports_other",
-    "woke":            "lgbtq_social",
-    "woke maybe":      "lgbtq_social",
-    "news politics":   "news_events",
-    "late night":      "entertainment",
+    "kpop": "fandom",
+    "anime": "fandom",
+    "reality": "reality_tv",
+    "reality tv": "reality_tv",
+    "news": "news_events",
+    "news events": "news_events",
+    "taylor swift": "taylor_swift",
+    "taylor": "taylor_swift",
+    "politics": "politics",
+    "political": "politics",
+    "lgbtq": "lgbtq_social",
+    "social justice": "lgbtq_social",
+    "religion": "religious",
+    "gaming": "tech_gaming",
+    "tech": "tech_gaming",
+    "crypto": "tech_gaming",
+    "manosphere": "manosphere",
+    "true crime": "true_crime",
+    "musk": "musk_twitter",
+    "twitter": "musk_twitter",
+    "holidays": "holidays",
+    "holiday": "holidays",
+    "wrestling": "wrestling",
+    "wwe": "wrestling",
+    "social": "social_filler",
+    "filler": "social_filler",
+    "social filler": "social_filler",
+    "ads": "social_filler",
+    "sponsored": "social_filler",
+    "nascar": "sports_other",
+    "sports": "sports_other",
+    "woke": "lgbtq_social",
+    "woke maybe": "lgbtq_social",
+    "news politics": "news_events",
+    "late night": "entertainment",
     "lindsey graham?": "politics",
     "zukerberg facebook idk": "news_events",
-    "books":           "politics",   # Susan Collins edge case
 }
+
 
 def normalize_label(raw: str) -> str:
     """Map shorthand user label to official category name."""
@@ -76,6 +78,7 @@ def normalize_label(raw: str) -> str:
         return raw
     key = str(raw).strip().lower()
     return LABEL_ALIASES.get(key, key)  # fall back to whatever they typed if no match
+
 
 # ── Load twitter trending data ────────────────────────────────────────────────
 df = pd.read_csv("out/twitter_trending_4yr.csv")
@@ -88,7 +91,9 @@ try:
     # Normalize shorthand labels to official names on load
     existing["manually_labeled"] = existing["manually_labeled"].apply(normalize_label)
     manual_map = (
-        existing[existing["manually_labeled"].notna() & (existing["manually_labeled"] != "")]
+        existing[
+            existing["manually_labeled"].notna() & (existing["manually_labeled"] != "")
+        ]
         .set_index("topic")["manually_labeled"]
         .to_dict()
     )
@@ -98,10 +103,12 @@ except FileNotFoundError:
     print("  No existing unique_topics.csv found — starting fresh.")
 
 # ── Build fresh DataFrame with current lexicon labels ────────────────────────
-unique_df = pd.DataFrame({
-    "topic":     freq.index,
-    "frequency": freq.values,
-})
+unique_df = pd.DataFrame(
+    {
+        "topic": freq.index,
+        "frequency": freq.values,
+    }
+)
 
 unique_df["label"] = unique_df["topic"].apply(classify_category)
 
@@ -115,9 +122,9 @@ unique_df.loc[mask, "label"] = unique_df.loc[mask, "manually_labeled"]
 # ── Save ──────────────────────────────────────────────────────────────────────
 unique_df.to_csv(UNIQUE_PATH, index=False)
 
-n_manual  = mask.sum()
-n_total   = len(unique_df)
-n_other   = (unique_df["label"] == "other").sum()
+n_manual = mask.sum()
+n_total = len(unique_df)
+n_other = (unique_df["label"] == "other").sum()
 pct_other = 100 * n_other / n_total
 
 print(f"  {n_total:,} unique topics written to {UNIQUE_PATH}")
