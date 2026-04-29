@@ -6,7 +6,6 @@ Data sourced from Morning Consult, Nielsen, Statista, Pew Research (2022-2023).
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.gridspec as gridspec
 import numpy as np
 import os
 

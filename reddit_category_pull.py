@@ -8,7 +8,6 @@ Output: out/reddit_category.tsv
 """
 
 import os, time, requests
-from datetime import datetime
 import pandas as pd
 import sys
 sys.path.insert(0, ".")
